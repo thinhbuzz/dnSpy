@@ -223,7 +223,7 @@ namespace dnSpy.Contracts.Text {
 			var parts = s.Split('/');
 			int slashIndex = 0;
 			for (int i = 0; i < parts.Length - 1; i++) {
-				output.Write(BoxedTextColor.DirectoryPart, IdentifierEscaper.Escape(parts[i]));
+				output.Write(BoxedTextColor.DirectoryPart, IdentifierEscaper.Escape(parts[i], true));
 				slashIndex += parts[i].Length;
 				output.Write(BoxedTextColor.Text, filename[slashIndex].ToString());
 				slashIndex++;
@@ -231,11 +231,11 @@ namespace dnSpy.Contracts.Text {
 			var fn = parts[parts.Length - 1];
 			int index = fn.LastIndexOf('.');
 			if (index < 0)
-				output.Write(BoxedTextColor.FileNameNoExtension, IdentifierEscaper.Escape(fn));
+				output.Write(BoxedTextColor.FileNameNoExtension, IdentifierEscaper.Escape(fn, true));
 			else {
 				string ext = fn.Substring(index + 1);
 				fn = fn.Substring(0, index);
-				output.Write(BoxedTextColor.FileNameNoExtension, IdentifierEscaper.Escape(fn));
+				output.Write(BoxedTextColor.FileNameNoExtension, IdentifierEscaper.Escape(fn, true));
 				output.Write(BoxedTextColor.Text, ".");
 				output.Write(BoxedTextColor.FileExtension, ext);
 			}
