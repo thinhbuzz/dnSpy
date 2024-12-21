@@ -141,8 +141,7 @@ namespace dnSpy.Contracts.Documents.TreeView.Resources {
 		public virtual void WriteShort(IDecompilerOutput output, IDecompiler decompiler, bool showOffset) {
 			decompiler.WriteCommentBegin(output, true);
 			output.WriteOffsetComment(this, showOffset);
-			const string LTR = "\u200E";
-			output.Write(NameUtilities.CleanName(Name) + LTR, this, DecompilerReferenceFlags.Local | DecompilerReferenceFlags.Definition, BoxedTextColor.Comment);
+			output.Write(IdentifierEscaper.Escape(Name), this, DecompilerReferenceFlags.Local | DecompilerReferenceFlags.Definition, BoxedTextColor.Comment);
 			output.Write($" = {ValueString}", BoxedTextColor.Comment);
 			decompiler.WriteCommentEnd(output, true);
 			output.WriteLine();
