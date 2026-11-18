@@ -1,39 +1,18 @@
-name: GitHub CI
+name: Build dnSpy (patched)
+
 on:
-  push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - master
-  release:
-    types:
-      - released
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
-    name: Build
+    name: Build dnSpy (netframework)
     runs-on: windows-latest
     defaults:
-        run:
-          shell: pwsh
-    strategy:
-      matrix:
-        platform: [netframework, net, net-x86, net-x64]
-        include:
-          - platform: netframework
-            package-name: netframework
-            build-dir: net48
-          - platform: net
-            package-name: net
-            build-dir: net10.0-windows
-          - platform: net-x86
-            package-name: net-win32
-            build-dir: net10.0-windows\win-x86\publish
-          - platform: net-x64
-            package-name: net-win64
-            build-dir: net10.0-windows\win-x64\publish
+      run:
+        shell: pwsh
 
     steps:
       - uses: actions/checkout@v6.0.3
@@ -47,20 +26,43 @@ jobs:
 
       - uses: microsoft/setup-msbuild@v3.0.0
 
-      - name: Build dnSpy (${{matrix.platform}})
-        run: .\build.ps1 ${{matrix.platform}}
+      # Makes the decompiler always emit enum member values, e.g. "MaxRevive = 0, LuckyEgg = 301"
+      - name: Apply enum member value patch
+        run: |
+          git -C Extensions/ILSpy.Decompiler/ICSharpCode.Decompiler apply -v "$env:GITHUB_WORKSPACE/patches/0001-always-print-enum-member-values.patch"
+          git -C Extensions/ILSpy.Decompiler/ICSharpCode.Decompiler diff --stat
 
-      - name: Create output directory
-        run: New-Item -ItemType Directory -Path C:\builtfiles\dnSpy-${{matrix.platform}} -Force > $null
-        continue-on-error: true
+      - name: Build dnSpy (netframework)
+        run: .\build.ps1 netframework
 
-      - name:  Copy release files for upload
-        run: Copy-Item -Path dnSpy\dnSpy\bin\Release\${{matrix.build-dir}}\* -Destination C:\builtfiles\dnSpy-${{matrix.platform}} -Recurse
+      - name: Copy release files for upload
+        run: |
+          New-Item -ItemType Directory -Path C:\builtfiles\dnSpy-netframework -Force > $null
+          Copy-Item -Path dnSpy\dnSpy\bin\Release\net48\* -Destination C:\builtfiles\dnSpy-netframework -Recurse
 
       - uses: actions/upload-artifact@v7.0.1
-        if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/')
         with:
-          name: dnSpy-${{matrix.package-name}}
-          path: C:\builtfiles\dnSpy-${{matrix.platform}}
+          name: dnSpy-netframework
+          path: C:\builtfiles\dnSpy-netframework
           if-no-files-found: error
           compression-level: 9
+
+      # Creates a unique release per run: <version>_<yyyy-dd-MM_HH-mm>
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (Select-String -Path DnSpyCommon.props -Pattern '<DnSpyAssemblyInformationalVersion>([^<]+)<').Matches[0].Groups[1].Value
+          $stamp = (Get-Date).ToUniversalTime().ToString('yyyy-dd-MM_HH-mm')
+          $tag = "${version}_${stamp}"
+          Write-Host "Release tag: $tag"
+          Compress-Archive -Path 'C:\builtfiles\dnSpy-netframework\*' -DestinationPath 'dnSpy-netframework.zip' -Force
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release $tag already exists, updating asset"
+            gh release upload $tag dnSpy-netframework.zip --clobber
+          }
+          else {
+            gh release create $tag dnSpy-netframework.zip --target $env:GITHUB_SHA --title $tag --notes "dnSpy $version for .NET Framework, built $stamp UTC. Decompiler always prints enum member values (e.g. ``MaxRevive = 0``)."
+          }
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }

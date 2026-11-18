@@ -1,0 +1,27 @@
+diff --git a/ICSharpCode.Decompiler/Ast/AstBuilder.cs b/ICSharpCode.Decompiler/Ast/AstBuilder.cs
+index 99872f4b..48f5e963 100644
+--- a/ICSharpCode.Decompiler/Ast/AstBuilder.cs
++++ b/ICSharpCode.Decompiler/Ast/AstBuilder.cs
+@@ -514,8 +514,6 @@ public EntityDeclaration CreateType(TypeDef typeDef)
+ 
+ 			EntityDeclaration result = astType;
+ 			if (typeDef.IsEnum) {
+-				long expectedEnumMemberValue = 0;
+-				bool forcePrintingInitializers = IsFlagsEnum(typeDef);
+ 				var enumType = typeDef.GetEnumUnderlyingType();
+ 				for (int i = 0; i < typeDef.Fields.Count; i++) {
+ 					var field = typeDef.Fields[i];
+@@ -533,11 +531,8 @@ public EntityDeclaration CreateType(TypeDef typeDef)
+ 						TypeCode c = constant == null ? TypeCode.Empty : Type.GetTypeCode(constant.GetType());
+ 						if (c < TypeCode.Char || c > TypeCode.Decimal)
+ 							continue;
+-						long memberValue = (long)CSharpPrimitiveCast.Cast(TypeCode.Int64, constant, false);
+-						if (forcePrintingInitializers || memberValue != expectedEnumMemberValue) {
+-							enumMember.AddChild(new PrimitiveExpression(ConvertConstant(enumType, constant)), EnumMemberDeclaration.InitializerRole);
+-						}
+-						expectedEnumMemberValue = memberValue + 1;
++						// Always print the value, e.g. 'LuckyEgg = 301', even if it's the implicit next value
++						enumMember.AddChild(new PrimitiveExpression(ConvertConstant(enumType, constant)), EnumMemberDeclaration.InitializerRole);
+ 						astType.AddChild(enumMember, Roles.TypeMemberRole);
+ 						AddComment(enumMember, field);
+ 					}
